@@ -1,0 +1,34 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+.next/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ML models
+*.pt
+*.pth
+
+# Databases
+backend/chroma_data/
+
+# Generated uploads
+backend/uploads/
+
+# ZIP archives
+*.zip
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

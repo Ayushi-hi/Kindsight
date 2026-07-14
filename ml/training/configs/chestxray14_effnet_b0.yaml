@@ -1,0 +1,24 @@
+data:
+  images_dir: "/content/data/sample/images"
+  labels_csv: "/content/data/sample_labels.csv"
+  image_size: 224
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+
+model:
+  architecture: "efficientnet_b0"
+  pretrained: true
+
+training:
+  batch_size: 32
+  epochs: 15
+  learning_rate: 0.0003
+  weight_decay: 0.00001
+  early_stopping_patience: 4
+  num_workers: 2
+
+output:
+  checkpoint_dir: "./saved_models"
+  checkpoint_name: "efficientnet_b0_chestxray14.pt"
+  log_csv: "./saved_models/training_log_multilabel.csv"

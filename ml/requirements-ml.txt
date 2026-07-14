@@ -1,0 +1,17 @@
+# Training environment dependencies. Install these in Colab with:
+#   !pip install -r requirements-ml.txt
+# (Colab already has torch/torchvision preinstalled with GPU support - installing
+# them again here would be redundant and slow, so they're deliberately left out.
+# If running locally instead of Colab, install torch first via
+# https://pytorch.org/get-started/locally/ for your platform/CUDA version.)
+
+timm==1.0.9                    # EfficientNet architectures
+pydicom==2.4.4                 # reading RSNA's DICOM files
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.5.1            # train/val split, metrics, calibration
+albumentations==1.4.15         # augmentations
+opencv-python-headless==4.10.0.84
+matplotlib==3.9.2
+tqdm==4.66.5
+grad-cam==1.5.4

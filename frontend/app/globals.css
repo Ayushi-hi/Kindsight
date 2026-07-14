@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: #FAF7F2;
+  color: #2B2B2E;
+}
+
+/* visible keyboard focus, never remove this */
+:focus-visible {
+  outline: 2px solid #5B6E5B;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Signature element: viewer reticle corner ticks, echoing the crosshair
+   guides on real radiology viewer software. */
+.reticle {
+  position: relative;
+}
+.reticle::before,
+.reticle::after,
+.reticle .tick-tr,
+.reticle .tick-bl {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: #4CC9C0;
+  opacity: 0.55;
+}
+.reticle::before {
+  top: 10px;
+  left: 10px;
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+.reticle::after {
+  bottom: 10px;
+  right: 10px;
+  border-bottom: 2px solid;
+  border-right: 2px solid;
+}
+
+/* Slow scanning sweep used when a Grad-CAM overlay is actively rendering */
+@keyframes scan-sweep {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+.scan-sweep {
+  animation: scan-sweep 2.4s linear infinite;
+}

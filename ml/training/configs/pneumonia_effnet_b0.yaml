@@ -1,0 +1,27 @@
+# Config for the first training run. Referenced by train_efficientnet.py.
+
+data:
+  images_dir: "./data/stage_2_train_images"       # folder of .dcm files
+  labels_csv: "./data/stage_2_train_labels.csv"    # RSNA's patientId/Target csv
+  image_size: 224
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+
+model:
+  architecture: "efficientnet_b0"
+  pretrained: true
+  num_classes: 1                # binary: sigmoid output, not softmax
+
+training:
+  batch_size: 32
+  epochs: 15
+  learning_rate: 0.0003
+  weight_decay: 0.00001
+  early_stopping_patience: 4     # stop if val AUROC doesn't improve for N epochs
+  num_workers: 2                 # Colab: keep low, its CPU is limited
+
+output:
+  checkpoint_dir: "./saved_models"
+  checkpoint_name: "efficientnet_b0_pneumonia.pt"
+  log_csv: "./saved_models/training_log.csv"

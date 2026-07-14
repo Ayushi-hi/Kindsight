@@ -1,0 +1,30 @@
+# Core API
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+
+# Database
+motor==3.5.1          # async MongoDB driver
+pymongo==4.8.0
+
+# Vector DB / RAG
+chromadb==0.5.5
+sentence-transformers==3.1.1
+
+# ML (only required once you switch OFF mock mode)
+torch==2.4.1
+torchvision==0.19.1
+timm==1.0.9            # EfficientNet architectures
+pillow==10.4.0
+opencv-python-headless==4.10.0.84
+grad-cam==1.5.4
+pydicom==2.4.4          # reading uploaded DICOM (.dcm) files
+
+# LLM calls for report generation + chat, via OpenRouter (OpenAI-compatible API)
+openai>=1.55.0
+
+# Utilities
+aiofiles==24.1.0
