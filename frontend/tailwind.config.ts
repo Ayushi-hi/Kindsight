@@ -8,18 +8,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        paper: "#FAF7F2",
-        ink: "#2B2B2E",
+        paper: "#F8F9FC",
+        ink: "#1F2330",
         sage: {
-          DEFAULT: "#5B6E5B",
-          muted: "#8B9A8B",
-          soft: "#EEF1EC",
+          DEFAULT: "#4F46E5",
+          muted: "#818CF8",
+          soft: "#EEF2FF",
         },
         clay: {
-          DEFAULT: "#C97B5E",
-          soft: "#F7E9E2",
+          DEFAULT: "#DC2626",
+          soft: "#FEE2E2",
         },
-        line: "#E8E2D6",
+        line: "#E5E7EB",
+        sidebar: "#1E1B4B",
       },
       fontFamily: {
         display: ["var(--font-fraunces)", "serif"],

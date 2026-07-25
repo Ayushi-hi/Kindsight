@@ -30,5 +30,42 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     llm_model: str = "meta-llama/llama-3.3-70b-instruct:free"
 
+    # --- Auth ---
+    jwt_secret_key: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+
+    # --- Email (SMTP via Gmail) ---
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "Kindsight"
+
+    # Used to build links inside emails (reset/verify), since the backend
+    # itself doesn't serve frontend pages.
+    frontend_base_url: str = "http://localhost:3000"
+
+    # Token lifetimes
+    reset_token_expire_minutes: int = 30
+    verification_token_expire_hours: int = 24
+
+    # --- Email (SMTP via Gmail) ---
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "Kindsight"
+
+    # Used to build links inside emails (reset/verify), since the backend
+    # itself doesn't serve frontend pages.
+    frontend_base_url: str = "http://localhost:3000"
+
+    # Token lifetimes
+    reset_token_expire_minutes: int = 30
+    verification_token_expire_hours: int = 24
+
 
 settings = Settings()

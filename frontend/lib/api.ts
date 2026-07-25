@@ -1,3 +1,4 @@
+import { getToken, clearSession } from "./auth";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 export interface ScanOut {
@@ -8,6 +9,15 @@ export interface ScanOut {
   status: "uploaded" | "processing" | "done" | "failed";
   uploaded_at: string;
   screening_types?: string[];
+  label?: string | null;
+  confidence?: number | null;
+}
+
+export interface ScanListResponse {
+  scans: ScanOut[];
+  total: number;
+  page: number;
+  page_size: number;
 }
 
 export interface PredictionOut {
@@ -73,6 +83,48 @@ export interface ReportMultiOut {
   generated_at: string;
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  full_name: string;
+  created_at: string;
+}
+
+export interface AuthTokenResponse {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+}
+
+// NEW: for the Reports list page - one row per generated report, covering
+// BOTH the pneumonia ("single") and 14-condition ("multilabel") pipelines.
+export interface ReportListItem {
+  scan_id: string;
+  report_type: "single" | "multilabel";
+  impression: string;
+  severity: string;
+  recommendation: string;
+  citations: string[];
+  generated_at: string;
+  preview_url: string | null;
+  modality: string | null;
+}
+
+export interface ReportListResponse {
+  reports: ReportListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface KnowledgeChunk {
+  id: string;
+  text: string;
+  source: string;
+  title: string;
+  url: string;
+}
+
 class ApiError extends Error {
   constructor(
     message: string,
@@ -84,11 +136,14 @@ class ApiError extends Error {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getToken();
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers:
-      options?.body instanceof FormData
-        ? undefined
-        : { "Content-Type": "application/json", ...options?.headers },
+    headers: {
+      ...(options?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
     ...options,
   });
 
@@ -100,6 +155,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     } catch {
       // response body wasn't JSON - fall back to statusText
     }
+
+    if (response.status === 401 && typeof window !== "undefined") {
+      clearSession();
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
+      }
+    }
+
     throw new ApiError(detail, response.status);
   }
 
@@ -120,9 +183,35 @@ export const api = {
     return request("/scans/upload", { method: "POST", body: formData });
   },
 
+  register: (payload: { email: string; password: string; full_name: string }): Promise<AuthTokenResponse> =>
+    request("/auth/register", { method: "POST", body: JSON.stringify(payload) }),
+
+  login: (payload: { email: string; password: string }): Promise<AuthTokenResponse> =>
+    request("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
+
+  me: (): Promise<AuthUser> => request("/auth/me"),
+
+  updateMe: (payload: { full_name?: string; email?: string }): Promise<AuthUser> =>
+    request("/auth/me", { method: "PUT", body: JSON.stringify(payload) }),
+
+  changePassword: (payload: { current_password: string; new_password: string }): Promise<{ status: string }> =>
+    request("/auth/change-password", { method: "POST", body: JSON.stringify(payload) }),
+
+  forgotPassword: (payload: { email: string }): Promise<{ status: string; message: string }> =>
+    request("/auth/forgot-password", { method: "POST", body: JSON.stringify(payload) }),
+
+  resetPassword: (payload: { token: string; new_password: string }): Promise<{ status: string }> =>
+    request("/auth/reset-password", { method: "POST", body: JSON.stringify(payload) }),
+
+  verifyEmail: (payload: { token: string }): Promise<{ status: string }> =>
+    request("/auth/verify-email", { method: "POST", body: JSON.stringify(payload) }),
+
   getScan: (scanId: string): Promise<ScanOut> => request(`/scans/${scanId}`),
 
   listScans: (limit = 10): Promise<{ scans: ScanOut[] }> => request(`/scans?limit=${limit}`),
+
+  listScansPage: (page = 1, pageSize = 10): Promise<ScanListResponse> =>
+    request(`/scans?page=${page}&page_size=${pageSize}`),
 
   runPrediction: (scanId: string): Promise<PredictionOut> =>
     request(`/predict/${scanId}`, { method: "POST" }),
@@ -154,6 +243,12 @@ export const api = {
 
   getMultiReport: (scanId: string): Promise<ReportMultiOut> =>
     request(`/report-multi/${scanId}`),
+
+  // NEW: powers the Reports list page.
+  listReports: (page = 1, pageSize = 10): Promise<ReportListResponse> =>
+    request(`/reports?page=${page}&page_size=${pageSize}`),
+
+  listKnowledge: (): Promise<{ chunks: KnowledgeChunk[]; total: number }> => request(`/knowledge`),
 };
 
 export { ApiError };
