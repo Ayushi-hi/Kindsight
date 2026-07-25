@@ -1,14 +1,15 @@
-# Kindsight —  Detection from Chest X-Rays
+# Kindsight — Detection from Chest X-Rays
 
 An end-to-end AI-assisted radiology review tool: upload a chest X-ray, get a
-pneumonia likelihood score from a trained CNN, see a Grad-CAM visualization
-of what the model focused on, read an AI-generated report grounded in
-retrieved medical reference material, and ask follow-up questions through a
-chat assistant.
+pneumonia likelihood score (and, optionally, a 14-condition multi-disease
+screen) from a trained CNN, see a Grad-CAM visualization of what the model
+focused on, read an AI-generated report grounded in retrieved medical
+reference material, and ask follow-up questions through a chat assistant —
+behind a real login system, with per-user data separation.
 
-Built as an MVP vertical slice — one disease (pneumonia), one modality
-(chest X-ray) — with the explicit goal of proving the full pipeline works
-end to end before expanding scope.
+Built as an MVP vertical slice — one primary disease (pneumonia), one
+modality (chest X-ray) — with the explicit goal of proving the full
+pipeline works end to end before expanding scope.
 
 ---
 
@@ -41,50 +42,55 @@ a deliberate scope decision, not an omission.
 |---|---|
 | Chest X-ray upload (PNG/JPG/**DICOM**) | ✅ Working |
 | Pneumonia detection (EfficientNet-B0, trained from scratch on RSNA data) | ✅ Working |
-| Grad-CAM visual explainability | ✅ Working |
-| Confidence scoring | ✅ Working |
+| 14-condition multi-label screening (EfficientNet-B0, NIH ChestX-ray14) | ✅ Working |
+| Grad-CAM visual explainability (both pipelines) | ✅ Working |
+| Confidence calibration (temperature scaling) | ✅ Working |
 | RAG-grounded report generation (LLM + retrieved reference material) | ✅ Working |
 | Conversational chat assistant, grounded in the same knowledge base | ✅ Working |
+| Real authentication (JWT + bcrypt), email-based password reset | ✅ Working |
+| Per-user scan visibility | ✅ Working |
+| Reports, Chat Assistant, Knowledge Base, and Settings pages | ✅ Working |
 | Next.js frontend, fully wired to live backend | ✅ Working |
 | Dockerized deployment (FastAPI + MongoDB + ChromaDB) | ✅ Working |
 
 ---
 
 ## 3. System Architecture
-
-```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Next.js Frontend                         │
-│   Upload UI │ Result Viewer │ Report Viewer │ Chat Assistant     │
+│ Next.js Frontend │
+│ Login/Signup │ Dashboard │ Scan Result │ Reports │ Chat │
+│ Assistant │ Knowledge Base │ Settings │
 └───────────────────────────┬───────────────────────────────────┘
-                             │ REST (JSON, multipart)
+│ REST (JSON, multipart), JWT bearer auth
 ┌───────────────────────────▼───────────────────────────────────┐
-│                        FastAPI Backend                          │
-│  Upload → Predict (EfficientNet-B0) → Grad-CAM → Report (RAG    │
-│  + LLM) → Chat (RAG + LLM), all persisted per-scan               │
+│ FastAPI Backend │
+│ Auth (register/login/reset) → Upload → Predict (single + │
+│ multi-label) → Grad-CAM → Report (RAG + LLM) → Chat (RAG + │
+│ LLM), all scoped to the authenticated user │
 └───────┬───────────────┬───────────────┬───────────────┬────────┘
-        │               │               │               │
-   ┌────▼────┐    ┌─────▼─────┐   ┌─────▼─────┐   ┌────▼─────┐
-   │ MongoDB │    │ ChromaDB  │   │ Trained   │   │ Local     │
-   │ (scans, │    │ (20 curated│  │ model     │   │ file      │
-   │ preds,  │    │  pneumonia │  │ checkpoint│   │ storage   │
-   │ reports)│    │  reference │  │ (.pt)     │   │ (images,  │
-   │         │    │  chunks)   │  │           │   │  heatmaps)│
-   └─────────┘    └───────────┘   └───────────┘   └──────────┘
-```
+│ │ │ │
+┌────▼────┐ ┌─────▼─────┐ ┌─────▼─────┐ ┌────▼─────┐
+│ MongoDB │ │ ChromaDB │ │ Trained │ │ Local │
+│ (users, │ │ (32 curated│ │ model │ │ file │
+│ scans, │ │ pneumonia │ │ checkpoints│ │ storage │
+│ preds, │ │ reference │ │ (.pt) + │ │ (images, │
+│ reports)│ │ chunks) │ │ calibration│ │ heatmaps)│
+│ │ │ │ │ temp file │ │ │
+└─────────┘ └───────────┘ └───────────┘ └──────────┘
 
 **Inference flow per upload:** image saved → EfficientNet-B0 forward pass →
-sigmoid confidence score → Grad-CAM backward pass generates a heatmap
-overlay → report service retrieves top-k relevant chunks from ChromaDB based
-on the prediction → an LLM (via OpenRouter, free-tier models) drafts
-Findings/Impression/Recommendation grounded in that retrieved context → chat
-assistant reuses the same retrieval + LLM pattern for follow-up questions.
+logit divided by a fitted calibration temperature → sigmoid confidence score
+→ Grad-CAM backward pass generates a heatmap overlay → report service
+retrieves top-k relevant chunks from ChromaDB based on the prediction → an
+LLM (via OpenRouter, free-tier models) drafts Findings/Impression/
+Recommendation grounded in that retrieved context → chat assistant reuses
+the same retrieval + LLM pattern for follow-up questions.
 
 ---
 
 ## 4. Machine Learning Details
 
-### Model
+### Pneumonia model
 - **Architecture:** EfficientNet-B0 (via `timm`), fine-tuned from ImageNet
   pretrained weights, binary classification head (sigmoid output)
 - **Dataset:** [RSNA Pneumonia Detection Challenge](https://www.kaggle.com/c/rsna-pneumonia-detection-challenge)
@@ -100,10 +106,32 @@ assistant reuses the same retrieval + LLM pattern for follow-up questions.
 - **Training:** 9 epochs (early stopping, patience 4), AdamW optimizer,
   BCE loss
 
+### 14-condition multi-label model
+- **Architecture:** EfficientNet-B0, multi-label head (14 independent
+  sigmoid outputs)
+- **Dataset:** NIH ChestX-ray14, full 112,118-image dataset, NIH's own
+  official patient-level split
+- **Result:** Macro AUROC 0.7862, per-class range ~0.68 (Infiltration) to
+  ~0.91 (Hernia, low sample support)
+- Runs as a fully separate pipeline from the pneumonia model — separate
+  endpoints, separate MongoDB-tagged records — so neither can break the
+  other
+
 ### Result
-- **Final held-out test set AUROC: 0.8831**
-- Test set was never used for early-stopping decisions, so this number
-  isn't optimistically biased by validation-set leakage
+- **Pneumonia model, held-out test set AUROC: 0.8831.** Test set was never
+  used for early-stopping decisions, so this number isn't optimistically
+  biased by validation-set leakage.
+
+### Confidence calibration
+Confidence scores are calibrated via temperature scaling (Guo et al.,
+2017): a single scalar, fitted on the held-out validation split, divides
+the model's logits before the sigmoid is applied. This does not change
+which class is predicted (ranking is preserved) — only how confident the
+model claims to be. Fitted temperature: **1.2893**. Validation AUROC was
+0.8813 both before and after calibration, confirming the fit didn't
+distort the model's discrimination, only its confidence magnitude. If the
+calibration file is ever missing, the backend falls back gracefully to an
+uncalibrated T=1.0 rather than failing.
 
 ### Explainability
 Grad-CAM heatmaps generated from the last convolutional block, spot-checked
@@ -115,12 +143,13 @@ number of examples, not a systematic evaluation (see Limitations).
 
 ## 5. RAG Knowledge Base
 
-20 original, curated reference chunks covering pneumonia radiology
+32 original, curated reference chunks covering pneumonia radiology
 (consolidation, air bronchograms, ground-glass opacities, severity
 assessment, risk factors, treatment overview, limitations of chest X-ray
 sensitivity, and more) were written specifically for this project rather
 than scraped from external sources, to avoid copyright and licensing risk.
-Embedded with `BAAI/bge-small-en-v1.5` and stored in ChromaDB.
+Embedded with `BAAI/bge-small-en-v1.5` and stored in ChromaDB. Browsable
+in-app via the Knowledge Base page.
 
 **For a production system**, this would be replaced or supplemented with
 properly licensed medical literature (PubMed abstracts, licensed clinical
@@ -131,9 +160,11 @@ complete and demonstrable for this MVP.
 
 ## 6. Tech Stack
 
-- **Frontend:** Next.js 15, TypeScript, Tailwind CSS
+- **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS
 - **Backend:** FastAPI, Python 3.12
-- **Database:** MongoDB (scan/prediction/report/chat persistence)
+- **Auth:** JWT (PyJWT) + bcrypt password hashing, custom-built
+- **Email:** Gmail SMTP, for password reset and account verification
+- **Database:** MongoDB (users/scan/prediction/report/chat persistence)
 - **Vector store:** ChromaDB (RAG knowledge base)
 - **ML:** PyTorch, `timm` (EfficientNet), `pytorch-grad-cam`, `pydicom`,
   OpenCV
@@ -144,31 +175,33 @@ complete and demonstrable for this MVP.
 ---
 
 ## 7. Project Structure
-
-```
-radintel-AI/
-├── backend/            FastAPI app, Dockerized
-│   ├── app/
-│   │   ├── api/         upload, predict, report, chat endpoints
-│   │   ├── services/    inference, gradcam, report, RAG, chat logic
-│   │   ├── scripts/     RAG knowledge base + ingestion script
-│   │   ├── models/      Pydantic schemas
-│   │   ├── db/          MongoDB + ChromaDB connections
-│   │   └── core/        settings/config
-│   ├── ml_models/       trained model checkpoint lives here
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/            Next.js app
-│   ├── app/              dashboard, scan result pages
-│   ├── components/       upload, heatmap viewer, report card, chat
-│   └── lib/api.ts         typed API client
-├── ml/                  training pipeline (separate from the running app)
-│   ├── training/          dataset, augmentations, training script
-│   ├── inference/          standalone prediction/Grad-CAM scripts
-│   └── notebooks/           Colab notebook for training on GPU
+Kindsight/
+├── backend/ FastAPI app, Dockerized
+│ ├── app/
+│ │ ├── api/ auth, upload, predict(-multi), report(-multi),
+│ │ │ reports (list), knowledge, chat endpoints
+│ │ ├── services/ inference, gradcam, report, RAG, chat,
+│ │ │ email logic
+│ │ ├── core/ settings/config, JWT security, auth dependency
+│ │ ├── models/ Pydantic schemas
+│ │ └── db/ MongoDB + ChromaDB connections
+│ ├── ml_models/ trained model checkpoints + calibration
+│ │ temperature file live here
+│ ├── Dockerfile
+│ └── requirements.txt
+├── frontend/ Next.js app
+│ ├── app/ login, signup, forgot/reset-password,
+│ │ dashboard, scan/scan-multi result pages,
+│ │ scans (recent), reports, chat, knowledge
+│ ├── components/ AppShell (auth guard), Sidebar, upload,
+│ │ heatmap viewers, report card, chat window
+│ └── lib/ api.ts (typed API client), auth.ts (session)
+├── ml/ training pipeline (separate from the running app)
+│ ├── training/ dataset, augmentations, training script,
+│ │ calibrate.py (temperature-scaling fit script)
+│ ├── inference/ standalone prediction/Grad-CAM scripts
+│ └── notebooks/ Colab notebooks for training on GPU
 └── docker-compose.yml
-```
-
 ---
 
 ## 8. Running the Project
@@ -187,12 +220,24 @@ npm install
 npm run dev
 ```
 
-Visit `http://localhost:3000/dashboard`. Backend API docs at
-`http://localhost:8000/docs`.
+Visit `http://localhost:3000/login` (sign up for an account first). Backend
+API docs at `http://localhost:8000/docs`.
 
-Environment variables needed in `backend/.env`: MongoDB URI, ChromaDB
-settings, `USE_MOCK_MODEL` (true/false), `MODEL_PATH`, and
-`OPENROUTER_API_KEY` (free tier available at openrouter.ai).
+Environment variables needed in `backend/.env`:
+- MongoDB URI, ChromaDB settings
+- `USE_MOCK_MODEL` (true/false), `MODEL_PATH`, `USE_MULTILABEL_MODEL`,
+  `MULTILABEL_MODEL_PATH`
+- `OPENROUTER_API_KEY` (free tier available at openrouter.ai)
+- `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
+  `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `FRONTEND_BASE_URL` — required for
+  password reset emails; `SMTP_PASSWORD` must be a Gmail **App Password**,
+  not the account's normal password (see
+  [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords))
+
+To run calibration on a newly retrained pneumonia model, see
+`ml/training/calibrate.py` — it writes a `_temperature.txt` file next to the
+checkpoint, which the backend picks up automatically on restart if present.
 
 ---
 
@@ -200,10 +245,11 @@ settings, `USE_MOCK_MODEL` (true/false), `MODEL_PATH`, and
 
 Being direct about these matters more than pretending they don't exist:
 
-- **Single disease, single modality.** This detects pneumonia on chest
-  X-rays only — not the 9-disease, 5-modality vision from the original
-  concept. That was a deliberate scope decision for a working MVP, not a
-  shortfall.
+- **Shared clinical workspace, not full per-user isolation.** Every scan
+  records an `owner_id` and list/detail views are scoped to the requesting
+  user, but this is a simplification, not a full multi-tenant model — worth
+  knowing if this were ever adapted for a setting with stricter data
+  separation requirements between users.
 - **Grad-CAM sanity checks were limited.** Verified visually on a handful
   of examples, not a systematic evaluation across many images or against
   ground-truth bounding boxes (which the RSNA dataset actually provides,
@@ -213,14 +259,21 @@ Being direct about these matters more than pretending they don't exist:
   border rather than lung tissue — a known and expected limitation of a
   model trained on a single, standardized dataset, not a contradiction of
   the in-distribution test results.
-- **Confidence scores are not calibrated.** The sigmoid output is used
-  directly as a "confidence" value; a calibration step (e.g., temperature
-  scaling) was identified as a natural next improvement but not implemented.
+- **Calibration improves confidence honesty, not accuracy.** Temperature
+  scaling was fit and applied (fitted T = 1.2893), so displayed confidence
+  values are better-calibrated than the raw sigmoid output — but this
+  doesn't change which cases the model gets right or wrong, only how
+  trustworthy its stated confidence is on the cases it already predicts.
+- **14-condition model has meaningfully lower per-class performance** than
+  the pneumonia binary model (macro AUROC 0.7862, with some classes like
+  Infiltration around 0.68) — a known consequence of NIH ChestX-ray14's
+  weaker, NLP-derived labels compared to RSNA's radiologist-reviewed ones.
 - **RAG knowledge base is a curated placeholder**, not licensed medical
   literature — sufficient to demonstrate the retrieval-grounded pipeline
   works, not a substitute for a properly sourced clinical knowledge base.
-- **No authentication or multi-user support.** Deliberately out of scope
-  for an MVP demo.
+- **Password reset relies on a single Gmail SMTP account**, which is fine
+  for a demo/small-scale deployment but isn't how a production system would
+  send transactional email at any real volume or reliability requirement.
 
 ---
 
@@ -240,7 +293,10 @@ for a short paper or research report section extending this project.
 
 ## 11. Acknowledgments
 
-- Dataset: RSNA Pneumonia Detection Challenge (Radiological Society of
-  North America, via Kaggle)
+- Datasets: RSNA Pneumonia Detection Challenge (Radiological Society of
+  North America, via Kaggle); NIH ChestX-ray14 (National Institutes of
+  Health Clinical Center)
 - Base architecture: EfficientNet (Tan & Le, 2019), via the `timm` library
 - Grad-CAM: Selvaraju et al., 2017, via the `pytorch-grad-cam` library
+- Temperature scaling: Guo et al., 2017 (*On Calibration of Modern Neural
+  Networks*)
