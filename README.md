@@ -1,465 +1,832 @@
-Kindsight — Detection from Chest X-Rays
+<div align="center">
+
+# 🩺 Kindsight
+
+### AI-Assisted Chest X-Ray Review & Radiology Intelligence
+
+**Detect • Explain • Retrieve • Report • Converse**
+
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-ML-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Database-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-RAG-FF6B35)](https://www.trychroma.com/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Status](https://img.shields.io/badge/Status-MVP-success)](#project-status)
+
+<br/>
+
+> **Kindsight is an AI-assisted radiology review MVP that combines chest X-ray classification, calibrated confidence, Grad-CAM explainability, retrieval-augmented generation (RAG), AI-assisted reporting, and conversational follow-up in one end-to-end application.**
+
+</div>
+
+---
+
+## 📌 Project Banner
+
+<div align="center">
+
+### 🩻 From X-Ray → Prediction → Explanation → Evidence → Report
+
+```text
+┌──────────────────┐
+│   Chest X-Ray    │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ EfficientNet-B0  │
+│   Prediction     │
+└────────┬─────────┘
+         │
+         ├──────────────► Confidence Calibration
+         │
+         ▼
+┌──────────────────┐
+│    Grad-CAM      │
+│ Visual Evidence  │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐       ┌──────────────────┐
+│    ChromaDB      │◄──────►│  Curated Medical │
+│   RAG Retrieval  │       │    Knowledge     │
+└────────┬─────────┘       └──────────────────┘
+         │
+         ▼
+┌──────────────────┐
+│ LLM Report +     │
+│ Chat Assistant   │
+└──────────────────┘
+```
+
+</div>
+
+---
+
+## 🧠 What is Kindsight?
+
+Kindsight is an end-to-end **AI-assisted radiology review system** focused on chest X-rays.
+
+A user can:
+
+1. Upload a chest X-ray in PNG, JPG, or DICOM format.
+2. Run a pneumonia prediction.
+3. Optionally run a 14-condition multi-label screen.
+4. View a calibrated confidence score.
+5. See a Grad-CAM heatmap showing where the model focused.
+6. Generate a retrieval-grounded radiology-style report.
+7. Ask follow-up questions through a conversational assistant.
+8. Review scans and reports through an authenticated dashboard.
+
+The project is intentionally positioned as a **triage / second-reader assistant**, not an autonomous diagnostic system.
+
+---
+
+# ✨ Features
+
+| Feature | Description | Status |
+|---|---|:---:|
+| 🩻 Chest X-Ray Upload | PNG, JPG, and DICOM support | ✅ |
+| 🫁 Pneumonia Detection | EfficientNet-B0 binary classifier | ✅ |
+| 🔬 Multi-Disease Screening | 14-condition NIH ChestX-ray14 pipeline | ✅ |
+| 🔥 Grad-CAM | Visual model explainability | ✅ |
+| 🎯 Confidence Calibration | Temperature-scaled confidence scores | ✅ |
+| 📚 RAG Knowledge Base | 32 curated medical reference chunks | ✅ |
+| 🤖 AI Report Generation | Retrieval-grounded Findings / Impression / Recommendation | ✅ |
+| 💬 AI Chat Assistant | Follow-up questions using the same RAG pipeline | ✅ |
+| 🔐 Authentication | JWT + bcrypt authentication | ✅ |
+| 📧 Password Reset | Email-based reset flow | ✅ |
+| 👤 Per-User Scan Visibility | User-scoped scan and report access | ✅ |
+| 🖥️ Next.js Dashboard | Frontend wired to the live backend | ✅ |
+| 🐳 Docker Deployment | FastAPI + MongoDB + ChromaDB | ✅ |
+
+---
+
+# 🏗️ System Architecture
+
+```text
+                              KINDSIGHT
+                                  │
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                         NEXT.JS FRONTEND                             │
+│                                                                      │
+│ Login │ Signup │ Dashboard │ Scan │ Reports │ Chat │ Knowledge Base │
+│                              Settings                                │
+└────────────────────────────────┬─────────────────────────────────────┘
+                                 │
+                         REST / JSON / Multipart
+                           JWT Bearer Authentication
+                                 │
+                                 ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                          FASTAPI BACKEND                              │
+│                                                                      │
+│  Authentication                                                      │
+│       │                                                              │
+│       ▼                                                              │
+│  Upload → Prediction → Calibration → Grad-CAM                        │
+│                         │                 │                           │
+│                         │                 ▼                           │
+│                         │            Heatmap                          │
+│                         ▼                                             │
+│                    RAG Retrieval                                      │
+│                         │                                             │
+│                         ▼                                             │
+│                    LLM Report                                         │
+│                         │                                             │
+│                         ▼                                             │
+│                    Chat Assistant                                    │
+└──────────────┬───────────────────┬────────────────────┬──────────────┘
+               │                   │                    │
+               ▼                   ▼                    ▼
+        ┌─────────────┐     ┌─────────────┐     ┌─────────────────┐
+        │   MongoDB   │     │  ChromaDB   │     │  ML Checkpoints │
+        │             │     │             │     │                 │
+        │ users       │     │ 32 curated  │     │ EfficientNet-B0 │
+        │ scans       │     │ references  │     │ .pt checkpoints │
+        │ predictions │     │ embeddings  │     │ calibration     │
+        │ reports     │     │             │     │ temperature     │
+        │ chat        │     │             │     │                 │
+        └─────────────┘     └─────────────┘     └─────────────────┘
+                                                        │
+                                                        ▼
+                                               ┌────────────────┐
+                                               │ Local Storage  │
+                                               │ X-rays         │
+                                               │ Heatmaps       │
+                                               └────────────────┘
+```
+
+## 🔄 Inference Pipeline
+
+```text
+Chest X-Ray
+    │
+    ▼
+Image Saved
+    │
+    ▼
+EfficientNet-B0 Forward Pass
+    │
+    ▼
+Temperature Scaling
+    │
+    ▼
+Sigmoid Confidence
+    │
+    ├──────────────► Prediction
+    │
+    ▼
+Grad-CAM Backward Pass
+    │
+    ▼
+Heatmap Overlay
+    │
+    ▼
+ChromaDB Top-K Retrieval
+    │
+    ▼
+LLM + Retrieved Context
+    │
+    ▼
+Findings / Impression / Recommendation
+    │
+    ▼
+Follow-up Chat using the same RAG context
+```
+
+---
+
+# 🖥️ Screenshots
+
+> Add your real application screenshots to `docs/screenshots/` and update the filenames below.
+
+### 🔐 Authentication
+
+![Login](docs/screenshots/login.png)
+
+### 📊 Dashboard
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+### 🩻 Scan & Prediction
+
+![Scan Result](docs/screenshots/scan-result.png)
+
+### 🔥 Grad-CAM Explainability
+
+![Grad-CAM](docs/screenshots/gradcam.png)
+
+### 📄 AI-Generated Report
+
+![Report](docs/screenshots/report.png)
+
+### 💬 AI Chat Assistant
+
+![Chat](docs/screenshots/chat.png)
+
+### 📚 Knowledge Base
+
+![Knowledge Base](docs/screenshots/knowledge-base.png)
+
+---
+
+# 🎬 Demo
+
+## Typical User Journey
+
+```text
+1. Create account
+       ↓
+2. Upload chest X-ray
+       ↓
+3. Run pneumonia / multi-label prediction
+       ↓
+4. View calibrated confidence
+       ↓
+5. Inspect Grad-CAM heatmap
+       ↓
+6. Generate evidence-grounded report
+       ↓
+7. Ask follow-up questions
+       ↓
+8. Review scan history and reports
+```
+
+> **Demo note:** No public live-demo URL is claimed here because the supplied project documentation does not provide one.
+
+---
+
+# 🧰 Tech Stack
+
+## Frontend
+
+- **Next.js 14** — App Router
+- **TypeScript**
+- **Tailwind CSS**
+
+## Backend
+
+- **FastAPI**
+- **Python 3.12**
+- REST API
+- JWT authentication
+- bcrypt password hashing
+- Gmail SMTP password-reset flow
+
+## Machine Learning
+
+- **PyTorch**
+- **EfficientNet-B0**
+- **timm**
+- **pytorch-grad-cam**
+- **OpenCV**
+- **pydicom**
+
+## Data & Retrieval
+
+- **MongoDB** — users, scans, predictions, reports, chat persistence
+- **ChromaDB** — vector storage for the RAG knowledge base
+- **BAAI/bge-small-en-v1.5** — embedding model
+
+## Generative AI
+
+- **OpenRouter**
+- OpenAI-compatible API
+- Free-tier LLM models
+
+## Deployment
+
+- **Docker**
+- **Docker Compose**
+
+---
+
+# 🧪 Machine Learning
+
+## 1. Pneumonia Detection
+
+### Model
 
-An end-to-end AI-assisted radiology review tool for chest X-rays.
+**EfficientNet-B0**
 
-Kindsight lets a user upload a chest X-ray and receive a pneumonia likelihood score, an optional 14-condition multi-disease screen, Grad-CAM visual explainability, an AI-generated report grounded in retrieved medical reference material, and follow-up chat — all behind authentication with per-user scan visibility.
+The pneumonia pipeline uses EfficientNet-B0 with a binary classification head.
 
-MVP scope: one primary disease (pneumonia) and one modality (chest X-ray), with the goal of proving the complete pipeline end to end before expanding the scope.
+### Dataset
 
-Important: Kindsight is designed as a triage / second-reader assistant, not an autonomous diagnostic tool. Reports and chat responses include an explicit clinical-correlation caveat.
+**RSNA Pneumonia Detection Challenge**
 
-1. Problem Statement
+- Approximately 26,700 chest X-rays
+- Approximately 22.5% pneumonia-positive
+- Stratified split
 
-Radiologists face increasing caseloads, and delayed or missed pneumonia findings on chest X-rays can meaningfully affect patient outcomes, particularly in high-volume or resource-constrained settings. Existing commercial AI triage tools demonstrate that AI-assisted second reads can help flag urgent cases faster, but many are closed, expensive, single-purpose systems.
+### Dataset Split
 
-Kindsight explores whether a single, coherent pipeline — detection, visual explainability, retrieval-grounded report generation, and conversational follow-up — can be built as an open, inspectable system using a widely available public dataset and free/low-cost tooling throughout.
+| Split | Images |
+|---|---:|
+| Train | 18,678 |
+| Validation | 4,003 |
+| Test | 4,003 |
 
-2. What Was Built
+### Preprocessing
 
-Component
+- CLAHE contrast enhancement
+- Resize to `224 × 224`
+- ImageNet normalization
 
-Status
+### Augmentation
 
-Chest X-ray upload (PNG/JPG/DICOM)
+- Rotation
+- Brightness / contrast jitter
+- Gaussian noise
+- No horizontal flip due to anatomical laterality
 
-✅ Working
+---
 
-Pneumonia detection (EfficientNet-B0, trained from scratch on RSNA data)
+# 📈 ML Results
 
-✅ Working
+## Pneumonia Model
 
-14-condition multi-label screening (EfficientNet-B0, NIH ChestX-ray14)
+| Metric | Result |
+|---|---:|
+| Test AUROC | **0.8831** |
+| Validation AUROC | **0.8813** |
+| Calibration Temperature | **1.2893** |
 
-✅ Working
+The held-out test set was not used for early-stopping decisions.
 
-Grad-CAM visual explainability (both pipelines)
+## 14-Condition Multi-Label Model
 
-✅ Working
+The second pipeline uses EfficientNet-B0 with 14 independent sigmoid outputs on NIH ChestX-ray14.
 
-Confidence calibration (temperature scaling)
+| Metric | Result |
+|---|---:|
+| Macro AUROC | **0.7862** |
+| Lowest reported class range | ~0.68 |
+| Highest reported class range | ~0.91 |
 
-✅ Working
+The two model pipelines remain separate, with separate endpoints and MongoDB-tagged records.
 
-RAG-grounded report generation (LLM + retrieved reference material)
+---
 
-✅ Working
+# 🎯 Confidence Calibration
 
-Conversational chat assistant, grounded in the same knowledge base
+Kindsight applies **temperature scaling** to improve the reliability of model confidence values.
 
-✅ Working
+```text
+Raw Logit
+   │
+   ▼
+Logit / Temperature
+   │
+   ▼
+Sigmoid
+   │
+   ▼
+Calibrated Confidence
+```
 
-Real authentication (JWT + bcrypt), email-based password reset
+The fitted temperature for the pneumonia model is:
 
-✅ Working
+```text
+T = 1.2893
+```
 
-Per-user scan visibility
+Calibration does **not** change the prediction ranking. It changes the confidence magnitude.
 
-✅ Working
+If the calibration file is unavailable, the backend falls back to:
 
-Reports, Chat Assistant, Knowledge Base, and Settings pages
+```text
+T = 1.0
+```
 
-✅ Working
+---
 
-Next.js frontend, fully wired to live backend
+# 🔥 Explainability with Grad-CAM
 
-✅ Working
+Kindsight uses **Grad-CAM** to produce visual heatmaps from the model's last convolutional block.
 
-Dockerized deployment (FastAPI + MongoDB + ChromaDB)
+The objective is to provide a visual indication of which regions contributed to the model's prediction.
 
-✅ Working
+The current evaluation is a **sanity check**, not a systematic localization benchmark.
 
-3. System Architecture
+---
 
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Next.js Frontend                            │
-│                                                                     │
-│ Login/Signup │ Dashboard │ Scan Result │ Reports │ Chat Assistant  │
-│ Knowledge Base │ Settings                                           │
-└───────────────────────────────┬─────────────────────────────────────┘
-                                │
-                     REST (JSON / multipart)
-                         JWT bearer auth
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                          FastAPI Backend                             │
-│                                                                     │
-│ Auth → Upload → Predict → Grad-CAM → Report → Chat                │
-│        │          │                 │          │                   │
-│        │          └─ Single +       │          └─ RAG + LLM        │
-│        │             Multi-label    └─ RAG + LLM                   │
-│        │                                                             │
-│        └─ All data and operations are scoped to the authenticated   │
-│           user                                                       │
-└──────────────┬────────────────┬────────────────┬────────────────────┘
-               │                │                │
-               ▼                ▼                ▼
-        ┌────────────┐   ┌────────────┐   ┌────────────────┐
-        │  MongoDB   │   │  ChromaDB  │   │ Trained Models │
-        │            │   │            │   │                │
-        │ users      │   │ 32 curated │   │ checkpoints    │
-        │ scans      │   │ pneumonia  │   │ (.pt)          │
-        │ predictions│   │ reference  │   │ calibration    │
-        │ reports    │   │ chunks     │   │ temperature    │
-        │ chat       │   │            │   │ file           │
-        └────────────┘   └────────────┘   └────────────────┘
-               │
-               ▼
-        ┌────────────────┐
-        │ Local Storage  │
-        │ images         │
-        │ heatmaps       │
-        └────────────────┘
+# 📚 RAG Knowledge Base
 
-Inference Flow
+Kindsight contains **32 original curated reference chunks** covering topics including:
 
-The uploaded image is saved.
+- Pneumonia radiology
+- Consolidation
+- Air bronchograms
+- Ground-glass opacities
+- Severity assessment
+- Risk factors
+- Treatment overview
+- Chest X-ray sensitivity limitations
 
-EfficientNet-B0 performs the forward pass.
+The knowledge base is embedded using:
 
-The model logit is divided by the fitted calibration temperature.
+```text
+BAAI/bge-small-en-v1.5
+```
 
-A sigmoid produces the calibrated confidence score.
+and stored in:
 
-Grad-CAM performs a backward pass to generate a heatmap overlay.
-
-The report service retrieves the most relevant chunks from ChromaDB based on the prediction.
-
-An LLM (via OpenRouter free-tier models) drafts Findings / Impression / Recommendation using the retrieved context.
-
-The chat assistant reuses the same retrieval + LLM pattern for follow-up questions.
-
-4. Machine Learning Details
-
-Pneumonia Model
-
-Architecture: EfficientNet-B0 (via timm), fine-tuned from ImageNet pretrained weights, with a binary classification head and sigmoid output.
-
-Dataset: RSNA Pneumonia Detection Challenge, approximately 26,700 chest X-rays with a 22.5% pneumonia-positive rate.
-
-Split: 18,678 train / 4,003 validation / 4,003 test, stratified by label.
-
-Preprocessing: CLAHE contrast enhancement, resize to 224×224, and ImageNet normalization.
-
-Augmentation: rotation, brightness/contrast jitter, and Gaussian noise. No horizontal flip is used because chest X-rays have real anatomical laterality.
-
-Training: 9 epochs, early stopping with patience 4, AdamW optimizer, and BCE loss.
-
-14-Condition Multi-Label Model
-
-Architecture: EfficientNet-B0 with a multi-label head containing 14 independent sigmoid outputs.
-
-Dataset: NIH ChestX-ray14, full 112,118-image dataset using NIH's official patient-level split.
-
-Result: Macro AUROC 0.7862, with a per-class range of approximately 0.68 (Infiltration) to approximately 0.91 (Hernia, low sample support).
-
-Runs as a separate pipeline from the pneumonia model, with separate endpoints and MongoDB-tagged records.
-
-Main Result
-
-Pneumonia model held-out test AUROC: 0.8831
-
-The test set was not used for early-stopping decisions, avoiding validation-set leakage into this metric.
-
-Confidence Calibration
-
-Confidence scores are calibrated using temperature scaling (Guo et al., 2017).
-
-A single scalar is fitted on the held-out validation split and divides the model logits before the sigmoid is applied.
-
-Fitted temperature: 1.2893
-
-Validation AUROC: 0.8813 before calibration
-
-Validation AUROC: 0.8813 after calibration
-
-This preserves prediction ranking while changing the confidence magnitude. If the calibration file is missing, the backend falls back to an uncalibrated T=1.0.
-
-Explainability
-
-Grad-CAM heatmaps are generated from the last convolutional block.
-
-They were spot-checked against multiple in-distribution RSNA images. Hot zones generally localized to plausible lung regions, although this was a small sanity check rather than a systematic evaluation.
-
-5. RAG Knowledge Base
-
-Kindsight contains 32 original, curated reference chunks covering pneumonia radiology topics such as:
-
-consolidation
-
-air bronchograms
-
-ground-glass opacities
-
-severity assessment
-
-risk factors
-
-treatment overview
-
-limitations of chest X-ray sensitivity
-
-The material was written specifically for this project rather than scraped from external sources, reducing copyright and licensing risk.
-
-Embeddings are generated with BAAI/bge-small-en-v1.5 and stored in ChromaDB. The knowledge base is browsable from the in-app Knowledge Base page.
-
-Production consideration: A production system would replace or supplement this curated set with properly licensed medical literature, such as PubMed abstracts or licensed clinical guidelines.
-
-6. Tech Stack
-
-Layer
-
-Technology
-
-Frontend
-
-Next.js 14 (App Router), TypeScript, Tailwind CSS
-
-Backend
-
-FastAPI, Python 3.12
-
-Authentication
-
-JWT (PyJWT) + bcrypt
-
-Email
-
-Gmail SMTP
-
-Database
-
-MongoDB
-
-Vector Store
-
+```text
 ChromaDB
+```
 
-ML
+### Report Generation
 
-PyTorch, timm, pytorch-grad-cam, pydicom, OpenCV
-
+```text
+Prediction
+    ↓
+Retrieve relevant medical context
+    ↓
+Combine prediction + retrieved context
+    ↓
 LLM
+    ↓
+Findings
+Impression
+Recommendation
+```
 
-OpenRouter (OpenAI-compatible API), free-tier models
+> For production use, the current curated knowledge base should be replaced or supplemented with properly licensed medical literature and clinical guidelines.
 
-Deployment
+---
 
-Docker Compose
+# 🤖 AI Chat Assistant
 
-7. Project Structure
+The chat assistant uses the same retrieval-grounded approach as report generation.
 
+```text
+User Question
+     ↓
+Retrieve relevant knowledge
+     ↓
+Build grounded context
+     ↓
+LLM
+     ↓
+Response
+```
+
+This allows follow-up questions to remain connected to the same knowledge base used by the reporting pipeline.
+
+---
+
+# 📁 Project Structure
+
+```text
 Kindsight/
 │
 ├── backend/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── auth
-│   │   │   ├── upload
-│   │   │   ├── predict
-│   │   │   ├── predict-multi
-│   │   │   ├── report
-│   │   │   ├── report-multi
-│   │   │   ├── reports
-│   │   │   ├── knowledge
-│   │   │   └── chat
+│   │   │   ├── auth/
+│   │   │   ├── upload/
+│   │   │   ├── predict/
+│   │   │   ├── predict-multi/
+│   │   │   ├── report/
+│   │   │   ├── report-multi/
+│   │   │   ├── reports/
+│   │   │   ├── knowledge/
+│   │   │   └── chat/
+│   │   │
 │   │   ├── services/
-│   │   │   ├── inference
-│   │   │   ├── gradcam
-│   │   │   ├── report
-│   │   │   ├── RAG
-│   │   │   ├── chat
-│   │   │   └── email
+│   │   │   ├── inference/
+│   │   │   ├── gradcam/
+│   │   │   ├── report/
+│   │   │   ├── RAG/
+│   │   │   ├── chat/
+│   │   │   └── email/
+│   │   │
 │   │   ├── core/
-│   │   │   ├── settings/config
-│   │   │   ├── JWT security
-│   │   │   └── auth dependency
+│   │   │   ├── settings/
+│   │   │   ├── JWT security/
+│   │   │   └── auth dependency/
+│   │   │
 │   │   ├── models/
-│   │   │   └── Pydantic schemas
 │   │   └── db/
-│   │       ├── MongoDB connection
-│   │       └── ChromaDB connection
 │   │
 │   ├── ml_models/
-│   │   ├── trained model checkpoints
-│   │   └── calibration temperature file
-│   │
 │   ├── Dockerfile
 │   └── requirements.txt
 │
 ├── frontend/
 │   ├── app/
-│   │   ├── login
-│   │   ├── signup
-│   │   ├── forgot/reset-password
-│   │   ├── dashboard
-│   │   ├── scan
-│   │   ├── scan-multi
-│   │   ├── scans
-│   │   ├── reports
-│   │   ├── chat
-│   │   └── knowledge
+│   │   ├── login/
+│   │   ├── signup/
+│   │   ├── forgot/reset-password/
+│   │   ├── dashboard/
+│   │   ├── scan/
+│   │   ├── scan-multi/
+│   │   ├── scans/
+│   │   ├── reports/
+│   │   ├── chat/
+│   │   └── knowledge/
+│   │
 │   ├── components/
-│   │   ├── AppShell
-│   │   ├── Sidebar
-│   │   ├── upload
-│   │   ├── heatmap viewers
-│   │   ├── report card
-│   │   └── chat window
 │   └── lib/
-│       ├── api.ts
-│       └── auth.ts
 │
 ├── ml/
 │   ├── training/
-│   │   ├── dataset
-│   │   ├── augmentations
-│   │   ├── training script
+│   │   ├── dataset/
+│   │   ├── augmentations/
+│   │   ├── training script/
 │   │   └── calibrate.py
+│   │
 │   ├── inference/
-│   │   └── standalone prediction / Grad-CAM scripts
 │   └── notebooks/
-│       └── Colab notebooks for GPU training
+│
+├── docs/
+│   └── screenshots/
 │
 └── docker-compose.yml
+```
 
-8. Running the Project
+---
 
-See ml/README.md for instructions on training the model from scratch using Colab.
+# 🚀 Installation
 
-Once a trained checkpoint exists, run the full application as follows.
+## Prerequisites
 
-1. Start the backend and databases
+Make sure you have:
 
-# From the project root
-docker compose up --build -d
+- Python 3.12
+- Node.js / npm
+- Docker
+- Docker Compose
+- A MongoDB configuration
+- An OpenRouter API key if using the LLM pipeline
 
-2. Start the frontend
+## 1. Clone the Repository
 
-cd frontend
-npm install
-npm run dev
+```bash
+git clone https://github.com/Ayushi-hi/Kindsight.git
+cd Kindsight
+```
 
-3. Open the application
+## 2. Configure Backend Environment
 
-Frontend: http://localhost:3000/login
+Create:
 
-Backend API docs: http://localhost:8000/docs
+```text
+backend/.env
+```
 
-Sign up for an account first.
+Example:
 
-Environment Variables
-
-Create backend/.env with the required configuration:
-
-# Database / RAG
+```env
 MONGODB_URI=...
+
 CHROMA_HOST=...
 CHROMA_PORT=...
 
-# Models
 USE_MOCK_MODEL=false
 MODEL_PATH=...
 USE_MULTILABEL_MODEL=false
 MULTILABEL_MODEL_PATH=...
 
-# LLM
 OPENROUTER_API_KEY=...
 
-# Authentication
 JWT_SECRET_KEY=...
 JWT_ALGORITHM=...
 ACCESS_TOKEN_EXPIRE_MINUTES=...
 
-# SMTP
 SMTP_HOST=...
 SMTP_PORT=...
 SMTP_USERNAME=...
 SMTP_PASSWORD=...
 SMTP_FROM_EMAIL=...
 SMTP_FROM_NAME=...
+
 FRONTEND_BASE_URL=...
+```
 
-SMTP_PASSWORD must be a Gmail App Password, not the account's normal password.
+> **Never commit `.env` files or API credentials to GitHub.**
 
-Security: Never commit .env files, API keys, passwords, model secrets, or other credentials to GitHub.
+## 3. Start Backend Services
 
-Recalibrating a Retrained Model
+From the project root:
 
-To run calibration on a newly retrained pneumonia model, see:
+```bash
+docker compose up --build -d
+```
 
+## 4. Start the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## 5. Open Kindsight
+
+Frontend:
+
+```text
+http://localhost:3000/login
+```
+
+FastAPI documentation:
+
+```text
+http://localhost:8000/docs
+```
+
+---
+
+# 🧑‍🔬 Training
+
+The ML training pipeline is separate from the running application.
+
+See:
+
+```text
+ml/README.md
+```
+
+for the Colab-based training workflow.
+
+For temperature calibration:
+
+```text
 ml/training/calibrate.py
+```
 
-The script writes a _temperature.txt file next to the checkpoint, which the backend automatically picks up after restart.
+The calibration script writes a `_temperature.txt` file next to the model checkpoint.
 
-9. Honest Limitations
+---
 
-Being direct about limitations matters more than pretending they do not exist.
+# ⚠️ Limitations
 
-Shared Clinical Workspace
+Kindsight is an MVP research / engineering prototype and has important limitations.
 
-Every scan records an owner_id, and list/detail views are scoped to the requesting user. However, this is a simplification rather than a complete multi-tenant architecture and would require stronger isolation for stricter production environments.
+### 1. Not an Autonomous Diagnostic System
 
-Limited Grad-CAM Evaluation
+Kindsight is intended as a **triage / second-reader assistant** and should not replace professional clinical judgment.
 
-Grad-CAM was visually verified on a handful of examples rather than through a systematic evaluation across many images or against ground-truth bounding boxes.
+### 2. Limited Grad-CAM Evaluation
 
-Out-of-Distribution Behavior
+Grad-CAM was visually spot-checked on a small number of examples rather than systematically evaluated against ground-truth localization data.
 
-Out-of-distribution behavior is unreliable. A non-RSNA-distribution test image produced a Grad-CAM heatmap concentrated on an image border rather than lung tissue.
+### 3. Out-of-Distribution Behavior
 
-This is a known limitation of a model trained on a single standardized dataset.
+A non-RSNA-distribution test image produced a heatmap concentrated around an image border rather than lung tissue.
 
-Calibration Does Not Improve Accuracy
+This demonstrates the importance of evaluating model behavior outside the training distribution.
 
-Temperature scaling improves the reliability of confidence values, not classification accuracy.
+### 4. Calibration ≠ Accuracy
 
-The fitted temperature is 1.2893. Calibration changes how confident the model is, but does not change which cases it predicts correctly or incorrectly.
+Temperature scaling improves confidence calibration but does not improve the underlying classifier's accuracy.
 
-14-Condition Model Performance
+### 5. Multi-Label Performance
 
-The 14-condition model has lower per-class performance than the pneumonia binary model:
+The 14-condition model has a macro AUROC of **0.7862**, with some classes around **0.68**.
 
-Macro AUROC: 0.7862
+### 6. Curated RAG Knowledge Base
 
-Some classes, such as Infiltration, are around 0.68
+The current 32-chunk knowledge base is designed to demonstrate the RAG pipeline and is not a replacement for licensed clinical literature.
 
-This is a known consequence of the weaker, NLP-derived labels in NIH ChestX-ray14 compared with the RSNA dataset.
+### 7. Production Data Isolation
 
-RAG Knowledge Base
+The application records `owner_id` and scopes scan visibility to the requesting user, but this is a simplified architecture rather than a complete production-grade multi-tenant isolation model.
 
-The current knowledge base is a curated placeholder rather than licensed medical literature. It demonstrates the retrieval-grounded pipeline but is not a substitute for a properly sourced clinical knowledge base.
+### 8. Email Infrastructure
 
-Email Infrastructure
+Password reset currently relies on Gmail SMTP and would need production-grade transactional email infrastructure at scale.
 
-Password reset currently relies on a single Gmail SMTP account. This is acceptable for a demo or small-scale deployment but would not be appropriate for high-volume production transactional email.
+---
 
-10. Research Angle
+# 🔬 Research Contribution
 
-The most interesting research component is not pneumonia detection itself, which is already well studied. The stronger research angle is the combination of:
+The core research direction of Kindsight is **not simply pneumonia classification**.
 
-calibrated confidence
+The project explores the combination of:
 
-Grad-CAM visual explainability
+```text
+Calibrated Prediction
+        +
+Visual Explainability
+        +
+Retrieval-Augmented Generation
+        +
+LLM-Based Reporting
+        +
+Conversational Follow-Up
+```
 
-retrieval-grounded report generation
+## Research Question
 
-conversational follow-up
+> **Does an LLM-generated radiology report remain consistent with the visual evidence highlighted by the underlying vision model?**
 
-evaluation of whether generated report text is consistent with the visual evidence highlighted by Grad-CAM
+This creates a potential research direction around **vision-language consistency in medical AI**.
 
-A useful research question is:
+A future study could compare:
 
-Does the language in an LLM-generated radiology report remain consistent with the visual evidence that the underlying vision model actually attends to?
+1. What the classifier predicts.
+2. What regions Grad-CAM highlights.
+3. What evidence is retrieved from the knowledge base.
+4. What the LLM states in the generated report.
+5. Whether the generated report is consistent with the model's visual evidence.
 
-This consistency check provides a reasonable direction for a research paper or extended project study.
+### Potential Future Work
 
-11. Acknowledgments
+- Systematic Grad-CAM localization evaluation
+- Ground-truth bounding-box comparison
+- More extensive out-of-distribution testing
+- Better calibration evaluation
+- Licensed clinical knowledge sources
+- Vision-language consistency metrics
+- Larger multi-disease evaluation
+- Stronger production-grade data isolation
 
-Datasets: RSNA Pneumonia Detection Challenge (Radiological Society of North America, via Kaggle); NIH ChestX-ray14 (National Institutes of Health Clinical Center)
+---
 
-Base architecture: EfficientNet (Tan & Le, 2019), via the timm library
+# 🔐 Security & Safety
 
-Grad-CAM: Selvaraju et al., 2017, via the pytorch-grad-cam library
+Kindsight handles medical images and authentication data, so security is an important consideration.
 
-Temperature scaling: Guo et al., 2017, On Calibration of Modern Neural Networks
+The project includes:
+
+- JWT authentication
+- bcrypt password hashing
+- Authenticated API endpoints
+- User-scoped scan visibility
+- Environment-based secrets
+- Password-reset email flow
+
+### Never Commit Secrets
+
+Do not commit:
+
+```text
+.env
+API keys
+JWT secrets
+SMTP passwords
+Private credentials
+```
+
+Use environment variables instead.
+
+---
+
+# 📊 Project Status
+
+| Area | Status |
+|---|:---:|
+| Frontend | 🟢 Working |
+| Backend API | 🟢 Working |
+| Authentication | 🟢 Working |
+| Pneumonia Model | 🟢 Working |
+| Multi-Label Model | 🟢 Working |
+| Grad-CAM | 🟢 Working |
+| Calibration | 🟢 Working |
+| RAG | 🟢 Working |
+| AI Reports | 🟢 Working |
+| AI Chat | 🟢 Working |
+| MongoDB Persistence | 🟢 Working |
+| Docker Deployment | 🟢 Working |
+| Production Clinical Validation | 🔴 Not validated |
+
+---
+
+# 🙏 Acknowledgments
+
+- **RSNA Pneumonia Detection Challenge** — Radiological Society of North America, via Kaggle
+- **NIH ChestX-ray14** — National Institutes of Health Clinical Center
+- **EfficientNet** — Tan & Le, 2019
+- **Grad-CAM** — Selvaraju et al., 2017
+- **Temperature Scaling** — Guo et al., 2017, *On Calibration of Modern Neural Networks*
+- **timm** — PyTorch image models
+- **pytorch-grad-cam** — Grad-CAM implementation
+
+---
+
+# 📚 References
+
+- Tan, M., & Le, Q. V. — *EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks*, 2019.
+- Selvaraju, R. R. et al. — *Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization*, 2017.
+- Guo, C. et al. — *On Calibration of Modern Neural Networks*, 2017.
+
+---
+
+<div align="center">
+
+## 🩺 Kindsight
+
+**AI-assisted radiology intelligence — built as an inspectable end-to-end research MVP.**
+
+<br/>
+
+⭐ If you find the project useful, consider starring the repository.
+
+</div>
